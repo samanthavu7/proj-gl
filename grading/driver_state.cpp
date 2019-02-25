@@ -43,38 +43,35 @@ void render(driver_state& state, render_type type)
 	       	triangle_geometry[0] = new data_geometry;
 		triangle_geometry[1] = new data_geometry;
 		triangle_geometry[2] = new data_geometry;
+		const_cast<data_geometry*>(triangle_geometry[0])->data = new float[MAX_FLOATS_PER_VERTEX];
+		const_cast<data_geometry*>(triangle_geometry[1])->data = new float[MAX_FLOATS_PER_VERTEX];
+		const_cast<data_geometry*>(triangle_geometry[2])->data = new float[MAX_FLOATS_PER_VERTEX];
 
 		data_vertex triangle_vertex1;
 		data_vertex triangle_vertex2;
 		data_vertex triangle_vertex3;
-
 		triangle_vertex1.data = &(state.vertex_data[state.floats_per_vertex * i]);
 		triangle_vertex2.data = &(state.vertex_data[state.floats_per_vertex * (i + 1)]);
 		triangle_vertex3.data = &(state.vertex_data[state.floats_per_vertex * (i + 2)]);
+		for(int j = 0; j < state.floats_per_vertex; j++) {
+		    triangle_geometry[0]->data[j] = *triangle_vertex1.data;
+		    triangle_geometry[1]->data[j] = *triangle_vertex2.data;
+		    triangle_geometry[2]->data[j] = *triangle_vertex3.data;
+		}
 
 		state.vertex_shader(triangle_vertex1, const_cast<data_geometry&>(*triangle_geometry[0]), state.uniform_data);
 		state.vertex_shader(triangle_vertex2, const_cast<data_geometry&>(*triangle_geometry[1]), state.uniform_data);
 		state.vertex_shader(triangle_vertex3, const_cast<data_geometry&>(*triangle_geometry[2]), state.uniform_data);
 
-		//const_cast<data_geometry*>(triangle_geometry[0])->data = new float[MAX_FLOATS_PER_VERTEX];
-		//const_cast<data_geometry*>(triangle_geometry[1])->data = new float[MAX_FLOATS_PER_VERTEX];
-		//const_cast<data_geometry*>(triangle_geometry[2])->data = new float[MAX_FLOATS_PER_VERTEX];
-
-
-                //for(int j = 0; j < state.floats_per_vertex; j++) { //traverse triangle_geometry arra
-		//    triangle_geometry[0]->data[j] = state.vertex_data[j + state.floats_per_vertex * i];
-		//    triangle_geometry[1]->data[j] = state.vertex_data[j + state.floats_per_vertex * (i + 1)];
-		//    triangle_geometry[2]->data[j] = state.vertex_data[j + state.floats_per_vertex * (i + 2)];
-		//}
 		rasterize_triangle(state, triangle_geometry);
 		
-		delete[] triangle_geometry[0];
-		delete[] triangle_geometry[1];
-		delete[] triangle_geometry[2];
-		delete triangle_geometry[0];
-		delete triangle_geometry[1];
-		delete triangle_geometry[2];
-		delete[] triangle_geometry;
+		//delete[] triangle_geometry[0]->data;
+		//delete[] triangle_geometry[1]->data;
+		//delete[] triangle_geometry[2]->data;
+		//delete triangle_geometry[0];
+		//delete triangle_geometry[1];
+		//delete triangle_geometry[2];
+		//delete[] triangle_geometry;
 	    }
 	    break;
 	case render_type::indexed:
