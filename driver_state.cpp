@@ -37,8 +37,7 @@ void initialize_render(driver_state& state, int width, int height)
 void render(driver_state& state, render_type type)
 {
     switch(type) {
-<<<<<<< HEAD
-        case render_type::triangle:
+        case render_type::triangle: {
 	    for(int i = 0; i < state.num_vertices; i += 3) { //traverse through every vertex
                 const data_geometry** triangle_geometry = new const data_geometry*[3]; //pointer to array of pointers
 	       	triangle_geometry[0] = new data_geometry;
@@ -73,27 +72,6 @@ void render(driver_state& state, render_type type)
 		//delete triangle_geometry[1];
 		//delete triangle_geometry[2];
 		//delete[] triangle_geometry;
-=======
-        case render_type::triangle: {
-	    const data_geometry *triangle_geometry[3];
-	    data_geometry g[state.num_vertices];
-	    data_vertex v[state.num_vertices];
-
-	    for(int i = 0, j = 0; i < state.num_vertices * state.floats_per_vertex; i += state.floats_per_vertex, j++) {
-		v[j].data = &state.vertex_data[i];
-		g[j].data = v[j].data;
-	    }
-
-	    for(int i = 0, j = 1, k = 0; i < state.num_vertices; i++, j++, k++) {
-		state.vertex_shader(v[i], g[i], state.uniform_data);
-		triangle_geometry[k] = &g[i];
-
-		if(!(j % 3) && j) {
-		    rasterize_triangle(state, triangle_geometry);
-		    k = -1;
-		    j = 0;
-		}
->>>>>>> 127569d4c2b09fec0e25911173eb42f41e9eb9b6
 	    }
 	    break;
 	}
