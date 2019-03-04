@@ -44,6 +44,7 @@ void render(driver_state& state, render_type type)
 		for(int j = 0; j < 3; j++) {
 		    triangle_geometry[j] = new data_geometry;
 		    data_vertex triangle_vertex;
+		    triangle_vertex.data = new float[MAX_FLOATS_PER_VERTEX];
 		    triangle_geometry[j]->data = new float[MAX_FLOATS_PER_VERTEX];
 		 		
 		    for(int k = 0; k < state.floats_per_vertex; k++) {
