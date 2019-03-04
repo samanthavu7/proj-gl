@@ -39,40 +39,24 @@ void render(driver_state& state, render_type type)
     switch(type) {
         case render_type::triangle: {
 	    for(int i = 0; i < state.num_vertices; i += 3) { //traverse through every vertex
-                const data_geometry** triangle_geometry = new const data_geometry*[3]; //pointer to array of pointers
-	       	triangle_geometry[0] = new data_geometry;
-		triangle_geometry[1] = new data_geometry;
-		triangle_geometry[2] = new data_geometry;
-		const_cast<data_geometry*>(triangle_geometry[0])->data = new float[MAX_FLOATS_PER_VERTEX];
-		const_cast<data_geometry*>(triangle_geometry[1])->data = new float[MAX_FLOATS_PER_VERTEX];
-		const_cast<data_geometry*>(triangle_geometry[2])->data = new float[MAX_FLOATS_PER_VERTEX];
+                data_geometry** triangle_geometry = new data_geometry*[3]; //pointer to array of pointers
+	       	
+		for(int j = 0; j < 3; j++) {
+		    triangle_geometry[j] = new data_geometry;
+		    data_vertex triangle_vertex;
+		    triangle_geometry[j]->data = new float[MAX_FLOATS_PER_VERTEX];
+		 		
+		    for(int k = 0; k < state.floats_per_vertex; k++) {
+		    	triangle_vertex.data[k] = state.vertex_data[k + state.floats_per_vertex * (i + j)];
+		    	triangle_geometry[j]->data[k] = triangle_vertex.data[k];
+		    }
 
-		//data_vertex triangle_vertex1;
-		//data_vertex triangle_vertex2;
-		//data_vertex triangle_vertex3;
-		//triangle_vertex1.data = &(state.vertex_data[state.floats_per_vertex * i]);
-		//triangle_vertex2.data = &(state.vertex_data[state.floats_per_vertex * (i + 1)]);
-		//triangle_vertex3.data = &(state.vertex_data[state.floats_per_vertex * (i + 2)]);
-		for(int j = 0; j < state.floats_per_vertex; j++) {
-		    triangle_geometry[0]->data[j] = state.vertex_data[j + state.floats_per_vertex * i];//*triangle_vertex1.data;
-		    triangle_geometry[1]->data[j] = state.vertex_data[j + state.floats_per_vertex * (i + 1)];//*triangle_vertex2.data;
-		    triangle_geometry[2]->data[j] = state.vertex_data[j + state.floats_per_vertex * (i + 2)];//*triangle_vertex3.data;
+		    state.vertex_shader(triangle_vertex, *triangle_geometry[j], state.uniform_data);
 		}
 
-		//state.vertex_shader(triangle_vertex1, const_cast<data_geometry&>(*triangle_geometry[0]), state.uniform_data);
-		//state.vertex_shader(triangle_vertex2, const_cast<data_geometry&>(*triangle_geometry[1]), state.uniform_data);
-		//state.vertex_shader(triangle_vertex3, const_cast<data_geometry&>(*triangle_geometry[2]), state.uniform_data);
-
-		rasterize_triangle(state, triangle_geometry);
-		
-		delete[] triangle_geometry[0]->data;
-		delete[] triangle_geometry[1]->data;
-		delete[] triangle_geometry[2]->data;
-		delete triangle_geometry[0];
-		delete triangle_geometry[1];
-		delete triangle_geometry[2];
-		delete[] triangle_geometry;
+		rasterize_triangle(state, (const data_geometry**)triangle_geometry);
 	    }
+
 	    break;
 	}
 	case render_type::indexed:
@@ -108,49 +92,60 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 // fragments, calling the fragment shader, and z-buffering.
 void rasterize_triangle(driver_state& state, const data_geometry* in[3])
 {
-   data_geometry *out = new data_geometry[3];
-   data_vertex v;
-   int i, j, image_index = 0;
-
+   // convert to NDC coordinates (i,j)
+   int i[3], j[3];
    for(int k = 0; k < 3; k++) {	
-	v.data = in[k]->data;
-	state.vertex_shader(v, out[k], state.uniform_data);
-	
-	out[k].gl_Position[0] /= out[k].gl_Position[3];
-	out[k].gl_Position[1] /= out[k].gl_Position[3];
-
-	i = state.image_width / 2.0 * (out[k].gl_Position)[0] + state.image_width / 2.0 - (0.5);
-	j = state.image_height / 2.0 * (out[k].gl_Position)[1] + state.image_height / 2.0 - (0.5);
-
-	image_index = i + j * state.image_width;
-	state.image_color[image_index] = make_pixel(255, 255, 255);
+	i[k] = state.image_width / 2.0 * (in[k]->gl_Position[0] / in[k]->gl_Position[3]) + state.image_width / 2.0 - 0.5;
+	j[k] = state.image_height / 2.0 * (in[k]->gl_Position[1] / in[k]->gl_Position[3]) + state.image_height / 2.0 - 0.5;
    }
 
-   int ax = state.image_width / 2.0 * out[0].gl_Position[0] + state.image_width / 2.0 - 0.5;
-   int ay = state.image_height / 2.0 * out[0].gl_Position[1] + state.image_height / 2.0 - 0.5;
-   int bx = state.image_width / 2.0 * out[1].gl_Position[0] + state.image_width / 2.0 - 0.5;
-   int by = state.image_height / 2.0 * out[1].gl_Position[1] + state.image_height / 2.0 - 0.5;
-   int cx = state.image_width / 2.0 * out[2].gl_Position[0] + state.image_width / 2.0 - 0.5;
-   int cy = state.image_height / 2.0 * out[2].gl_Position[1] + state.image_height / 2.0 - 0.5;
+   int min_i = std::min(std::min(i[0],i[1]),i[2]);
+   int max_i = std::max(std::max(i[0],i[1]),i[2]);
+   int min_j = std::min(std::min(j[0],j[1]),j[2]);
+   int max_j = std::max(std::max(j[0],j[1]),j[2]);
 
-   float area_abc = 0.5 * (((bx * cy) - (cx * by)) - ((ax * cy) - (cx * ay)) - ((ax * by) - (bx * ay)));
-   float area_pbc, area_apc, area_abp, alpha, beta, gamma = 0.0;
+   if(min_i < 0) { min_i = 0; } //check
+   if(min_j < 0) { min_j = 0; }
+   if(max_i > state.image_width) { max_i = state.image_width - 1; }
+   if(max_j > state.image_height) { max_j = state.image_height - 1; }
 
-   for(int x = 0; x < state.image_width; x++) {
-       for(int y = 0; y < state.image_height; y++) {
-           area_pbc = 0.5 * (((bx * cy) - (cx * by)) + ((by - cy) * x) + ((cx - bx) * y));
-	   area_apc = 0.5 * (((cx * ay) - (ax * cy)) + ((cy - ay) * x) + ((ax - cx) * y));
-	   area_abp = 0.5 * (((ax * by) - (bx * ay)) + ((ay - by) * x) + ((bx  - ax) * y));
+   float area = 0.5 * ((i[1] * j[2] - i[2] * j[1]) - (i[0] * j[2] - i[2] * j[0]) - (i[0] * j[1] - i[1] * j[0]));
+   float alpha, beta, gamma = 0.0;
+ 
+   float* data = new float[MAX_FLOATS_PER_VERTEX];
+   data_fragment frag{data};
+   data_output out;
+   float temp;
+  
+   for(int y = min_j; y < max_j; y++) {
+       for(int x = min_i; x < max_i; x++) {
+           alpha = 0.5 * ((i[1] * j[2] - i[2] * j[1]) + (j[1] - j[2]) * x + (i[2] - i[1]) * y) / area;
+	   beta = 0.5 * ((i[2] * j[0] - i[0] * j[2]) + (j[2] - j[0]) * x + (i[0] - i[2]) * y) / area;
+	   gamma = 0.5 * ((i[0] * j[1] - i[1] * j[0]) + (j[0] - j[1]) * x + (i[1] - i[0]) * y) / area;
 
-	   alpha = area_pbc / area_abc;
-	   beta = area_apc / area_abc;
-	   gamma = area_abp / area_abc;
+           if(alpha >= 0 && beta >= 0 && gamma >= 0) {      
+	       for(int z = 0; z < state.floats_per_vertex; z++) {
+	           switch(state.interp_rules[z]) {
+	               case interp_type::flat:
+		           frag.data[z] = in[0]->data[z];
+		           break;
+		       case interp_type::smooth:
+		           temp = alpha / in[0]->gl_Position[3] + beta / in[1]->gl_Position[3] + gamma / in[2]->gl_Position[3]; 
+			   alpha /= temp * in[0]->gl_Position[3];
+			   beta /= temp * in[1]->gl_Position[3];
+			   gamma /= temp * in[2]->gl_Position[3];
+			   break;
+		       case interp_type::noperspective:
+			   frag.data[z] = alpha * in[0]->data[z] + beta * in[1]->data[z] + gamma * in[2]->data[z];
+		           break;
+		       default:
+		           break;
+	           }
+	       }
 
-           if(alpha >= 0 && beta >= 0 && gamma >= 0) {
-               image_index = x + y * state.image_width;
- 	       state.image_color[image_index] = make_pixel(255, 255, 255);
-           }
+	       state.fragment_shader(frag, out, state.uniform_data);
+	       state.image_color[x + y * state.image_width] = make_pixel(out.output_color[0] * 255, out.output_color[1] * 255, out.output_color[2] * 255);
+	   }   
        }
    }  
-
 }
