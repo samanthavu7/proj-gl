@@ -118,8 +118,8 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
    data_output out;
    float temp;
   
-   for(int y = min_j; y < max_j; y++) {
-       for(int x = min_i; x < max_i; x++) {
+   for(int y = min_j; y <= max_j; y++) {
+       for(int x = min_i; x <= max_i; x++) {
            alpha = 0.5 * ((i[1] * j[2] - i[2] * j[1]) + (j[1] - j[2]) * x + (i[2] - i[1]) * y) / area;
 	   beta = 0.5 * ((i[2] * j[0] - i[0] * j[2]) + (j[2] - j[0]) * x + (i[0] - i[2]) * y) / area;
 	   gamma = 0.5 * ((i[0] * j[1] - i[1] * j[0]) + (j[0] - j[1]) * x + (i[1] - i[0]) * y) / area;
