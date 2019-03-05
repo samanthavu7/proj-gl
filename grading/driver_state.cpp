@@ -94,39 +94,35 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 void rasterize_triangle(driver_state& state, const data_geometry* in[3])
 {
    // convert to NDC coordinates (i,j)
-   int pixels[3][2]; //int i[3], j[3];
+   int i[3], j[3];
    for(int k = 0; k < 3; k++) {	
-	pixels[k][0] = state.image_width / 2.0 * (in[k]->gl_Position[0] / in[k]->gl_Position[3]) + state.image_width / 2.0 - 0.5;
-	pixels[k][1] = state.image_height / 2.0 * (in[k]->gl_Position[1] / in[k]->gl_Position[3]) + state.image_height / 2.0 - 0.5;
+	i[k] = state.image_width / 2.0 * (in[k]->gl_Position[0] / in[k]->gl_Position[3]) + state.image_width / 2.0 - 0.5;
+	j[k] = state.image_height / 2.0 * (in[k]->gl_Position[1] / in[k]->gl_Position[3]) + state.image_height / 2.0 - 0.5;
    }
 
-   //int min_i = std::min(std::min(i[0],i[1]),i[2]);
-   //int max_i = std::max(std::max(i[0],i[1]),i[2]);
-   //int min_j = std::min(std::min(j[0],j[1]),j[2]);
-   //int max_j = std::max(std::max(j[0],j[1]),j[2]);
+   int min_i = std::min(std::min(i[0],i[1]),i[2]);
+   int max_i = std::max(std::max(i[0],i[1]),i[2]);
+   int min_j = std::min(std::min(j[0],j[1]),j[2]);
+   int max_j = std::max(std::max(j[0],j[1]),j[2]);
 
-   //if(min_i < 0) { min_i = 0; } //check
-   //if(min_j < 0) { min_j = 0; }
-   //if(max_i > state.image_width) { max_i = state.image_width - 1; }
-   //if(max_j > state.image_height) { max_j = state.image_height - 1; }
+   if(min_i < 0) { min_i = 0; } 
+   if(min_j < 0) { min_j = 0; }
+   if(max_i > state.image_width) { max_i = state.image_width - 1; }
+   if(max_j > state.image_height) { max_j = state.image_height - 1; }
 
-   int ax = pixels[0][0]; int ay = pixels[0][1];
-   int bx = pixels[1][0]; int by = pixels[1][1];
-   int cx = pixels[2][0]; int cy = pixels[2][1];
-
-   double area = 0.5 * ((bx*cy - cx*by) - (ax*cy - cx*ay) + (ax*by - bx*ay));//0.5 * ((i[1] * j[2] - i[2] * j[1]) - (i[0] * j[2] - i[2] * j[0]) - (i[0] * j[1] - i[1] * j[0]));
-   double alpha, beta, gamma = 0.0;
+   float area = 0.5 * ((i[1] * j[2] - i[2] * j[1]) - (i[0] * j[2] - i[2] * j[0]) + (i[0] * j[1] - i[1] * j[0]));
+   float alpha, beta, gamma = 0.0;
  
    float* data = new float[MAX_FLOATS_PER_VERTEX];
    data_fragment frag{data};
    data_output out;
-   float temp, ap, bp, gp;
+   float temp, alpha_prime, beta_prime, gamma_prime;
   
-   for(int y = 0; y < state.image_height; y++) {
-       for(int x = 0; x < state.image_width; x++) {
-           alpha = 0.5 * ((bx*cy - cx*by) + (by-cy)*x + (cx-bx)*y) / area; //0.5 * ((i[1] * j[2] - i[2] * j[1]) + (j[1] - j[2]) * x + (i[2] - i[1]) * y) / area;
-	   beta = 0.5 * ((cx*ay - ax*cy) + (cy-ay)*x + (ax-cx)*y) / area;//0.5 * ((i[2] * j[0] - i[0] * j[2]) + (j[2] - j[0]) * x + (i[0] - i[2]) * y) / area;
-	   gamma = 0.5 * ((ax*by - bx * ay) + (ay-by)*x + (bx-ax)*y) / area;//0.5 * ((i[0] * j[1] - i[1] * j[0]) + (j[0] - j[1]) * x + (i[1] - i[0]) * y) / area;
+   for(int y = min_j; y <= max_j; y++) {
+       for(int x = min_i; x < max_i; x++) {
+           alpha = 0.5 * ((i[1] * j[2] - i[2] * j[1]) + (j[1] - j[2]) * x + (i[2] - i[1]) * y) / area;
+	   beta = 0.5 * ((i[2] * j[0] - i[0] * j[2]) + (j[2] - j[0]) * x + (i[0] - i[2]) * y) / area;
+	   gamma = 0.5 * ((i[0] * j[1] - i[1] * j[0]) + (j[0] - j[1]) * x + (i[1] - i[0]) * y) / area;
 
            if(alpha >= 0 && beta >= 0 && gamma >= 0) {      
 	       for(int z = 0; z < state.floats_per_vertex; z++) {
@@ -136,10 +132,10 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
 		           break;
 		       case interp_type::smooth:
 		           temp = alpha / in[0]->gl_Position[3] + beta / in[1]->gl_Position[3] + gamma / in[2]->gl_Position[3]; 
-			   ap = alpha / (temp * in[0]->gl_Position[3]);
-			   bp = beta / (temp * in[1]->gl_Position[3]);
-			   gp = gamma / (temp * in[2]->gl_Position[3]);
-			   frag.data[z] = ap * in[0]->data[z] + bp * in[1]->data[z] + gp * in[2]->data[z];
+			   alpha_prime = alpha / (temp * in[0]->gl_Position[3]);
+			   beta_prime = beta / (temp * in[1]->gl_Position[3]);
+			   gamma_prime = gamma / (temp * in[2]->gl_Position[3]);
+			   frag.data[z] = alpha_prime * in[0]->data[z] + beta_prime * in[1]->data[z] + gamma_prime * in[2]->data[z];
 			   break;
 		       case interp_type::noperspective:
 			   frag.data[z] = alpha * in[0]->data[z] + beta * in[1]->data[z] + gamma * in[2]->data[z];
