@@ -106,13 +106,18 @@ void render(driver_state& state, render_type type)
 // simply pass the call on to rasterize_triangle.
 void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 {
-    if(face==6)
+    if(face == 1)
     {
         rasterize_triangle(state, in);
         return;
     }
     
-    clip_triangle(state,in,face+1);
+    vec4 a = in[0]->gl_Position;
+    vec4 b = in[1]->gl_Position;
+    vec4 c = in[2]->gl_Position;
+
+
+    clip_triangle(state, in, face + 1);
 }
 
 // Rasterize the triangle defined by the three vertices in the "in" array.  This
@@ -121,11 +126,11 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 void rasterize_triangle(driver_state& state, const data_geometry* in[3])
 {
    // convert to NDC coordinates (i,j)
-   int i[3], j[3];//, k[3];
+   float i[3], j[3], k[3];
    for(int n = 0; n < 3; n++) {	
 	i[n] = state.image_width / 2.0 * (in[n]->gl_Position[0] / in[n]->gl_Position[3]) + state.image_width / 2.0 - 0.5;
 	j[n] = state.image_height / 2.0 * (in[n]->gl_Position[1] / in[n]->gl_Position[3]) + state.image_height / 2.0 - 0.5;
-	//k[n] = in[n]->gl_Position[2] / in[n]->gl_Position[3];
+	k[n] = in[n]->gl_Position[2] / in[n]->gl_Position[3];
    }
 
    int min_i = std::min(std::min(i[0],i[1]),i[2]);
@@ -146,14 +151,15 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
    data_output out;
    float temp, depth, alpha_prime, beta_prime, gamma_prime;
   
-   for(int y = min_j; y < max_j; y++) {
-       for(int x = min_i; x < max_i; x++) {
+   for(int x = min_i; x < max_i; x++) {
+       for(int y = min_j; y < max_j; y++) {
            alpha = 0.5 * ((i[1] * j[2] - i[2] * j[1]) + (j[1] - j[2]) * x + (i[2] - i[1]) * y) / area;
 	   beta = 0.5 * ((i[2] * j[0] - i[0] * j[2]) + (j[2] - j[0]) * x + (i[0] - i[2]) * y) / area;
 	   gamma = 0.5 * ((i[0] * j[1] - i[1] * j[0]) + (j[0] - j[1]) * x + (i[1] - i[0]) * y) / area;
 
            if(alpha >= 0 && beta >= 0 && gamma >= 0) {      
-	       depth = alpha * (in[0]->gl_Position[2] / in[0]->gl_Position[3]) + beta * (in[1]->gl_Position[2] / in[1]->gl_Position[3]) + gamma * (in[2]->gl_Position[2] / in[2]->gl_Position[3]);
+	       //depth = alpha * (in[0]->gl_Position[2] / in[0]->gl_Position[3]) + beta * (in[1]->gl_Position[2] / in[1]->gl_Position[3]) + gamma * (in[2]->gl_Position[2] / in[2]->gl_Position[3]);
+	       depth = alpha * k[0] + beta * k[1] + gamma * k[2];
 	       if(state.image_depth[x + y * state.image_width] > depth) {
 	           for(int z = 0; z < state.floats_per_vertex; z++) {
 	               switch(state.interp_rules[z]) {
