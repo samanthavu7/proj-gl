@@ -19,12 +19,14 @@ void initialize_render(driver_state& state, int width, int height)
     state.image_width = width;
     state.image_height = height;
     state.image_color = new pixel[width * height];
-    state.image_depth = 0; // initialization - TO DO
+    state.image_depth = new float[width * height]; // initialization - TO DO
 
     for(int i = 0; i < width * height; i++) {
         state.image_color[i] = make_pixel(0, 0, 0); // initialize to black pixels
     }
-
+    for(int j = 0; j < width * height; j++) {
+	state.image_depth[j] = 1;
+    }
 }
 
 // This function will be called to render the data that has been stored in this class.
@@ -36,36 +38,63 @@ void initialize_render(driver_state& state, int width, int height)
 //   render_type::strip -    The vertices are to be interpreted as a triangle strip.
 void render(driver_state& state, render_type type)
 {
+    const data_geometry* out[3];
+    data_geometry g[3];
+    data_vertex v[3];
+    int beg = 0;
+
     switch(type) {
         case render_type::triangle: {
-	    for(int i = 0; i < state.num_vertices; i += 3) { //traverse through every vertex
-                data_geometry** triangle_geometry = new data_geometry*[3]; //pointer to array of pointers
-	       	
-		for(int j = 0; j < 3; j++) {
-		    triangle_geometry[j] = new data_geometry;
-		    data_vertex triangle_vertex;
-		    triangle_vertex.data = new float[MAX_FLOATS_PER_VERTEX];
-		    triangle_geometry[j]->data = new float[MAX_FLOATS_PER_VERTEX];
-		 		
-		    for(int k = 0; k < state.floats_per_vertex; k++) {
-		    	triangle_vertex.data[k] = state.vertex_data[k + state.floats_per_vertex * (i + j)];
-		    	triangle_geometry[j]->data[k] = triangle_vertex.data[k];
-		    }
-
-		    state.vertex_shader(triangle_vertex, *triangle_geometry[j], state.uniform_data);
+	   for(int i = 0; i < state.num_vertices; i += 3) {
+		for(int j = 0; j < 3; j++) {			
+		    v[j].data = &state.vertex_data[beg];
+		    g[j].data = v[j].data;
+		    state.vertex_shader(v[j], g[j], state.uniform_data);
+		    out[j] = &g[j];
+		    beg += state.floats_per_vertex;
 		}
-
-		rasterize_triangle(state, (const data_geometry**)triangle_geometry);
+		clip_triangle(state, out, 0);
 	    }
-
 	    break;
 	}
-	case render_type::indexed:
+	case render_type::indexed: {
+	    for(int i = 0; i < 3 * state.num_triangles; i += 3) {
+		for(int j = 0; j < 3; j++) {
+		    v[j].data = &state.vertex_data[state.index_data[i + j] * state.floats_per_vertex];
+		    g[j].data = v[j].data;
+		    state.vertex_shader(v[j], g[j], state.uniform_data);
+		    out[j] = &g[j];
+		}
+		clip_triangle(state, out, 0);
+	    }
 	    break;
-	case render_type::fan:
+	}
+	case render_type::fan: {
+	    for(int i = 0; i < state.num_vertices; i++) {
+		for(int j = 0; j < 3; j++) {
+		    int index = i + j;
+		    if(j == 0) { index = 0; }
+		    v[j].data = &state.vertex_data[index * state.floats_per_vertex];
+		    g[j].data = v[j].data;
+		    state.vertex_shader(v[j], g[j], state.uniform_data);
+		    out[j] = &g[j];
+		}
+		clip_triangle(state, out, 0);
+	    }
 	    break;
-	case render_type::strip:
+	}
+	case render_type::strip: {
+	    for(int i = 0; i < state.num_vertices - 2; i++) {
+		for(int j = 0; j < 3; j++) {
+		    v[j].data = &state.vertex_data[(i + j) * state.floats_per_vertex];
+		    g[j].data = v[j].data;
+		    state.vertex_shader(v[j], g[j], state.uniform_data);
+		    out[j] = & g[j];
+		}
+		clip_triangle(state, out, 0);
+	    }
 	    break;
+	}
 	default:
 	    break;
     }    
@@ -84,7 +113,7 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
         rasterize_triangle(state, in);
         return;
     }
-    std::cout<<"TODO: implement clipping. (The current code passes the triangle through without clipping them.)"<<std::endl;
+    
     clip_triangle(state,in,face+1);
 }
 
@@ -94,10 +123,11 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 void rasterize_triangle(driver_state& state, const data_geometry* in[3])
 {
    // convert to NDC coordinates (i,j)
-   int i[3], j[3];
-   for(int k = 0; k < 3; k++) {	
-	i[k] = state.image_width / 2.0 * (in[k]->gl_Position[0] / in[k]->gl_Position[3]) + state.image_width / 2.0 - 0.5;
-	j[k] = state.image_height / 2.0 * (in[k]->gl_Position[1] / in[k]->gl_Position[3]) + state.image_height / 2.0 - 0.5;
+   int i[3], j[3], k[3];
+   for(int n = 0; n < 3; n++) {	
+	i[n] = state.image_width / 2.0 * (in[n]->gl_Position[0] / in[n]->gl_Position[3]) + state.image_width / 2.0 - 0.5;
+	j[n] = state.image_height / 2.0 * (in[n]->gl_Position[1] / in[n]->gl_Position[3]) + state.image_height / 2.0 - 0.5;
+	k[n] = in[n]->gl_Position[2] / in[n]->gl_Position[3];
    }
 
    int min_i = std::min(std::min(i[0],i[1]),i[2]);
@@ -116,7 +146,7 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
    float* data = new float[MAX_FLOATS_PER_VERTEX];
    data_fragment frag{data};
    data_output out;
-   float temp, alpha_prime, beta_prime, gamma_prime;
+   float temp, depth, alpha_prime, beta_prime, gamma_prime;
   
    for(int y = min_j; y <= max_j; y++) {
        for(int x = min_i; x < max_i; x++) {
@@ -125,6 +155,8 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
 	   gamma = 0.5 * ((i[0] * j[1] - i[1] * j[0]) + (j[0] - j[1]) * x + (i[1] - i[0]) * y) / area;
 
            if(alpha >= 0 && beta >= 0 && gamma >= 0) {      
+	       depth = alpha * k[0] + beta * k[1] + gamma * k[2];
+	       if(state.image_depth[x + y * state.image_width] > depth) {
 	       for(int z = 0; z < state.floats_per_vertex; z++) {
 	           switch(state.interp_rules[z]) {
 	               case interp_type::flat:
@@ -147,6 +179,8 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
 
 	       state.fragment_shader(frag, out, state.uniform_data);
 	       state.image_color[x + y * state.image_width] = make_pixel(out.output_color[0] * 255, out.output_color[1] * 255, out.output_color[2] * 255);
+		state.image_depth[x + y * state.image_width] = depth;
+	   }
 	   }   
        }
    }  
