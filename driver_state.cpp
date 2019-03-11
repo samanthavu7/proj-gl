@@ -184,7 +184,7 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 
 	}
 
-	clip_triangle(state, in, face + 1);
+	clip_triangle(state, input, face + 1);
     }
 }
 
