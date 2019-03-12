@@ -116,69 +116,69 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
     vec4 b = in[1]->gl_Position;
     vec4 c = in[2]->gl_Position;
     const data_geometry *input[3] = { in[0], in[1], in[2] };
-    data_geometry new_data0[3];
-    data_geometry new_data1[3];
-    float a0, a1, b0, b1;
+    data_geometry new_vertex0[3];
+    data_geometry new_vertex1[3];
+    float alpha0, alpha1, alpha_prime;
     vec4 p0, p1;
 
-    if(a[2] < -a[3] && b[2] < -b[3] && c[2] < -c[3]) { return; }
+    if(a[2] <= -a[3] && b[2] <= -b[3] && c[2] <= -c[3]) { return; }
     else 
-	if(a[2] < -a[3] && b[2] >= -b[3] && c[2] >= -c[3]) {
-	    b0 = (-b[3] - b[2]) / (a[2] + a[3] - b[3] - b[2]);
-	    b1 = (-a[3] - a[2]) / (c[2] + c[3] - a[3] - a[2]);
-	    p0 = b0 * a + (1 - b0) * b;
-	    p1 = b1 * c + (1 - b1) * a;
+	if(a[2] <= -a[3] && b[2] > -b[3] && c[2] > -c[3]) {
+	    alpha0 = (-b[3] - b[2]) / (a[2] + a[3] - b[3] - b[2]);
+	    alpha1 = (-a[3] - a[2]) / (c[2] + c[3] - a[3] - a[2]);
+	    p0 = alpha0 * a + (1 - alpha0) * b;
+	    p1 = alpha1 * c + (1 - alpha1) * a;
 
-	    new_data0[0].data = new float[state.floats_per_vertex];
-	    new_data0[1] = *in[1];
-	    new_data0[2] = *in[2];
+	    new_vertex0[0].data = new float[state.floats_per_vertex];
+	    new_vertex0[1] = *in[1];
+	    new_vertex0[2] = *in[2];
 
-	    for(int i = 0; i < state.floats_per_vertex; i++) 
+	    for(int i = 0; i < state.floats_per_vertex; i++) {
 		switch(state.interp_rules[i]) {
 		    case interp_type::flat:
-			new_data0[0].data[i] = in[0]->data[i];
+			new_vertex0[0].data[i] = in[0]->data[i];
 			break;
 		    case interp_type::smooth:
-			new_data0[0].data[i] = b1 * in[2]->data[i] + (1 - b1) * in[0]->data[i];
+			new_vertex0[0].data[i] = alpha1 * in[2]->data[i] + (1 - alpha1) * in[0]->data[i];
 			break;
 		    case interp_type::noperspective:
-			a0 = b1 * in[2]->gl_Position[3] / (b1 * in[2]->gl_Position[3] + (1 - b1) * in[0]->gl_Position[3]);
-			new_data0[0].data[i] = a0 * in[2]->data[i] + (1 - a0) * in[0]->data[i];
+			alpha_prime = alpha1 * in[2]->gl_Position[3] / (alpha1 * in[2]->gl_Position[3] + (1 - alpha1) * in[0]->gl_Position[3]);
+			new_vertex0[0].data[i] = alpha_prime * in[2]->data[i] + (1 - alpha_prime) * in[0]->data[i];
 			break;
 		    default:
 			break;
 		}
+	    }
  
-	    new_data0[0].gl_Position = p1;
-	    input[0] = &new_data0[0];
-	    input[1] = &new_data0[1];
-	    input[2] = &new_data0[2];
+	    new_vertex0[0].gl_Position = p1;
+	    input[0] = &new_vertex0[0];
+	    input[1] = &new_vertex0[1];
+	    input[2] = &new_vertex0[2];
 
 	    clip_triangle(state, input, face + 1);
 
-	    new_data1[0].data = new float[state.floats_per_vertex];
-	    new_data1[2] = *in[2];
+	    new_vertex1[0].data = new float[state.floats_per_vertex];
 
 	    for(int i = 0; i < state.floats_per_vertex; i++) 
 		switch(state.interp_rules[i]) {
 		    case interp_type::flat:
-			new_data1[0].data[i] = in[0]->data[i];
+			new_vertex1[0].data[i] = in[0]->data[i];
 			break;
 		    case interp_type::smooth:
-			new_data1[0].data[i] = b0 * in[0]->data[i] + (1 - b0) * in[1]->data[i];
+			new_vertex1[0].data[i] = alpha0 * in[0]->data[i] + (1 - alpha0) * in[1]->data[i];
 			break;
 		    case interp_type::noperspective:
-			a0 = b0 * in[0]->gl_Position[3] / (b0 * in[0]->gl_Position[3] * (1 - b0) * in[1]->gl_Position[3]);
-			new_data1[0].data[i] = a0 * in[0]->data[i] + (1 - a0) * in[1]->data[i];
+			alpha_prime = alpha0 * in[0]->gl_Position[3] / (alpha0 * in[0]->gl_Position[3] * (1 - alpha0) * in[1]->gl_Position[3]);
+			new_vertex1[0].data[i] = alpha_prime * in[0]->data[i] + (1 - alpha_prime) * in[1]->data[i];
 			break;
 		    default:
 			break;
 		}
 	    
-	    new_data1[0].gl_Position = p0;
-	    input[0] = &new_data1[0];
-	    input[1] = &new_data0[1];
-	    input[2] = &new_data0[0];
+	    new_vertex1[0].gl_Position = p0;
+	    input[0] = &new_vertex1[0];
+	    input[1] = &new_vertex0[1];
+	    input[2] = &new_vertex0[0];
 	
 	}
 	
@@ -215,7 +215,7 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
    float* data = new float[MAX_FLOATS_PER_VERTEX];
    data_fragment frag{data};
    data_output out;
-   float temp, depth, alpha_prime, beta_prime, gamma_prime;
+   float temp, depth, alpha_prime, beta_prime, gamma_prime = 0.0;
   
    for(int x = min_i; x < max_i; x++) {
        for(int y = min_j; y < max_j; y++) {
