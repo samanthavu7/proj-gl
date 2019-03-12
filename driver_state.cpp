@@ -122,7 +122,7 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
     vec4 p0, p1;
 
     if(a[2] < -a[3] && b[2] < -b[3] && c[2] < -c[3]) { return; }
-    else {
+    else 
 	if(a[2] < -a[3] && b[2] >= -b[3] && c[2] >= -c[3]) {
 	    b0 = (-b[3] - b[2]) / (a[2] + a[3] - b[3] - b[2]);
 	    b1 = (-a[3] - a[2]) / (c[2] + c[3] - a[3] - a[2]);
@@ -133,7 +133,7 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 	    new_data0[1] = *in[1];
 	    new_data0[2] = *in[2];
 
-	    for(int i = 0; i < state.floats_per_vertex; i++) {
+	    for(int i = 0; i < state.floats_per_vertex; i++) 
 		switch(state.interp_rules[i]) {
 		    case interp_type::flat:
 			new_data0[0].data[i] = in[0]->data[i];
@@ -148,8 +148,7 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 		    default:
 			break;
 		}
-	    }
-
+ 
 	    new_data0[0].gl_Position = p1;
 	    input[0] = &new_data0[0];
 	    input[1] = &new_data0[1];
@@ -160,7 +159,7 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 	    new_data1[0].data = new float[state.floats_per_vertex];
 	    new_data1[2] = *in[2];
 
-	    for(int i = 0; i < state.floats_per_vertex; i++) {
+	    for(int i = 0; i < state.floats_per_vertex; i++) 
 		switch(state.interp_rules[i]) {
 		    case interp_type::flat:
 			new_data1[0].data[i] = in[0]->data[i];
@@ -175,17 +174,16 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 		    default:
 			break;
 		}
-	    }
-
+	    
 	    new_data1[0].gl_Position = p0;
 	    input[0] = &new_data1[0];
 	    input[1] = &new_data0[1];
 	    input[2] = &new_data0[0];
-
+	
 	}
-
+	
 	clip_triangle(state, input, face + 1);
-    }
+
 }
 
 // Rasterize the triangle defined by the three vertices in the "in" array.  This
@@ -201,10 +199,10 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
 	k[n] = in[n]->gl_Position[2] / in[n]->gl_Position[3];
    }
 
-   int min_i = std::min(std::min(i[0],i[1]),i[2]);
-   int max_i = std::max(std::max(i[0],i[1]),i[2]);
-   int min_j = std::min(std::min(j[0],j[1]),j[2]);
-   int max_j = std::max(std::max(j[0],j[1]),j[2]);
+   float min_i = std::min(std::min(i[0],i[1]),i[2]);
+   float max_i = std::max(std::max(i[0],i[1]),i[2]);
+   float min_j = std::min(std::min(j[0],j[1]),j[2]);
+   float max_j = std::max(std::max(j[0],j[1]),j[2]);
 
    if(min_i < 0) { min_i = 0; } 
    if(min_j < 0) { min_j = 0; }
